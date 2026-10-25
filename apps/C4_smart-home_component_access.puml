@@ -1,0 +1,25 @@
+@startuml SmartHomeAccess
+!include ../C4_Component.puml
+
+title C4 — Components: User Access Management
+LAYOUT_LEFT_RIGHT()
+
+Container(gateway, "API Gateway", "Единая точка входа")
+ContainerDb(accessDB, "Access DB", "PostgreSQL", "Пользователи и роли")
+
+Container_Boundary(accessBoundary, "User Access Management Service") {
+    Component(accessapi, "Access API", "Аутентификация и управление пользователями")
+    Component(authService, "Authentication Service", "Проверка учётных данных и токенов")
+    Component(authorizationService, "Authorization Service", "Проверка ролей и разрешений")
+    Component(userRepository, "User Repository", "Хранение данных пользователей и ролей")
+}
+
+Rel(gateway, accessapi, "Запросы аутентификации и доступа", "http/rest")
+Rel(accessapi, authService, "Передаёт запрос на аутентификацию")
+Rel(accessapi, authorizationService, "Проверяет разрешения")
+Rel(authService, userRepository, "Получает учётные данные")
+Rel(authorizationService, userRepository, "Получает роли и права")
+Rel(userRepository, accessDB, "Читает и изменяет данные", "SQL")
+
+SHOW_LEGEND()
+@enduml

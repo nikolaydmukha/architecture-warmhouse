@@ -1,0 +1,30 @@
+@startuml SmartHomeClimate
+!include ../C4_Component.puml
+
+title C4 — Components: Climate Control
+LAYOUT_LEFT_RIGHT()
+
+Container(gateway, "API Gateway", "Единая точка входа")
+ContainerQueue(broker, "Message Broker", "RabbitMQ", "Команды и события управления")
+ContainerDb(climateDB, "Climate DB", "PostgreSQL", "Настройки и расписания")
+
+Container_Boundary(climateBoundary, "Climate Control Service") {
+    Component(climateapi, "Climate Control API", "Приём запросов управления климатом")
+    Component(climateCommandHandler, "Climate Command Handler", "Проверка и обработка команд")
+    Component(climateTimetable, "Climate Timetable Service", "Применение правил и расписаний")
+    Component(climateRepository, "Climate Repository", "Хранение целевых температур и настроек")
+    Component(climateEventPublisher, "Climate Event Publisher", "Публикация команд и событий")
+}
+
+Rel(gateway, climateapi, "Команды управления климатом", "http/rest")
+Rel(climateapi, climateCommandHandler, "Передаёт команды")
+Rel(climateCommandHandler, climateTimetable, "Проверяет расписание")
+Rel(climateCommandHandler, climateRepository, "Сохраняет настройки")
+Rel(climateTimetable, climateRepository, "Работает с расписанием")
+Rel(climateRepository, climateDB, "Читает и записывает", "SQL")
+Rel(climateCommandHandler, climateEventPublisher, "Передаёт команду на публикацию")
+Rel(climateEventPublisher, broker, "Публикует команды управления", "amqp")
+Rel(broker, climateCommandHandler, "Передаёт результаты выполнения команд", "amqp")
+
+SHOW_LEGEND()
+@enduml

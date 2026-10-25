@@ -1,0 +1,27 @@
+@startuml SmartHomeSensor
+!include ../C4_Component.puml
+
+title C4 — Components: Sensor Management
+LAYOUT_LEFT_RIGHT()
+
+Container(gateway, "API Gateway", "Единая точка входа")
+ContainerQueue(broker, "Message Broker", "RabbitMQ", "События системы")
+ContainerDb(sensorDB, "Sensor DB", "PostgreSQL", "Метаданные датчиков")
+
+Container_Boundary(sensorBoundary, "Sensor Management Service") {
+    Component(sensorapi, "Sensor API", "Управление датчиками")
+    Component(sensorCommandHandler, "Sensor Command Handler", "Создание, изменение и удаление")
+    Component(sensorQueryService, "Sensor Query Service", "Получение сведений о датчиках")
+    Component(sensorRepository, "Sensor Repository", "Доступ к метаданным датчиков")
+}
+
+Rel(gateway, sensorapi, "Управление датчиками", "http/rest")
+Rel(sensorapi, sensorCommandHandler, "Передаёт команды")
+Rel(sensorapi, sensorQueryService, "Передаёт запросы на чтение")
+Rel(sensorCommandHandler, sensorRepository, "Изменяет метаданные")
+Rel(sensorQueryService, sensorRepository, "Читает метаданные")
+Rel(sensorRepository, sensorDB, "Читает и изменяет данные", "SQL")
+Rel(sensorCommandHandler, broker, "Публикует события датчиков", "amqp")
+
+SHOW_LEGEND()
+@enduml

@@ -1,0 +1,55 @@
+@startuml SmartHomeContainers
+!include ../C4_Container.puml
+
+title Container Diagram - "Умный дом" 
+
+Person(user, "Пользователь", "Просматривает температуру и управляет климатом в помещениях")
+Person(admin, "Администратор", "Управляет датчиками: создание, изменение, удаление, обновление")
+
+
+System_Ext(physicalSensors, "Физические датчики", "Измеряют температуру, выполняют команды(устанавливают желаемое значение)")
+
+System_Boundary(smartHome, "Платформа «Умный дом»") {
+
+    Container(gateway, "API Gateway", "http/rest", "Маршрутизация запросов")
+
+    Container(access, "User Access Management",  "Аутентификация, роли и права доступа")
+    Container(sensorMgmt, "Sensor Management Service",  "Регистрация и управление датчиками")
+    Container(monitoring, "Temperature Monitoring Service",  "Текущие показания, история и контроль порогов")
+    Container(integration, "Sensor Integration Service", "Интеграция с устройствами и внешними API")
+    Container(climate, "Climate Control Service",  "Целевая температура и команды управления климатом")
+    Container(notifications, "Notification Service", "Обработка событий и отправка уведомлений")
+
+    ContainerDb(sensorDB, "Sensor DB", "PostgreSQL", "Метаданные датчиков")
+    ContainerDb(monitoringDB, "Monitoring DB", "PostgreSQL", "Измерения и история температуры")
+    ContainerDb(climateDB, "Climate DB", "PostgreSQL", "Целевые температуры и расписания")
+    ContainerDb(accessDB, "Access DB", "PostgreSQL", "Пользователи, роли и права доступа")
+
+    ContainerQueue(broker, "Message Broker", "RabbitMQ")
+}
+
+Rel(user, gateway, "Использует", "httpS/json")
+Rel(admin, gateway, "Управляет датчиками", "httpS/json")
+
+Rel(gateway, access, "Проверяет доступ и получает данные пользователя", "https/rest")
+Rel(gateway, sensorMgmt, "Запросы управления датчиками", "http/rest")
+Rel(gateway, monitoring, "Запросы температурных показаний", "http/rest")
+Rel(gateway, climate, "Команды управления климатом", "http/rest")
+
+Rel(sensorMgmt, sensorDB, "Читает и изменяет", "SQL")
+Rel(monitoring, monitoringDB, "Сохраняет и читает измерения", "SQL")
+Rel(climate, climateDB, "Сохраняет настройки климата", "SQL")
+Rel(access, accessDB, "Читает и изменяет", "SQL")
+
+Rel(integration, physicalSensors, "Получает измерения и передаёт команды", "mqtt/http — зависит от устройства")
+
+Rel(integration, broker, "Публикует измерения и состояние устройств", "amqp")
+Rel(monitoring, broker, "Получает измерения; публикует события о порогах", "amqp")
+Rel(climate, broker, "Публикует команды; получает результаты выполнения", "amqp")
+Rel(notifications, broker, "Получает события для уведомлений", "amqp")
+
+Rel(sensorMgmt, broker, "Публикует события регистрации и удаления датчиков", "amqp")
+Rel(access, gateway, "Результат проверки доступа", "rest/токен")
+
+SHOW_LEGEND()
+@enduml

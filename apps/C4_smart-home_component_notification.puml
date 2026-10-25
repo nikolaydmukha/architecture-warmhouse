@@ -1,0 +1,22 @@
+@startuml SmartHomeNotification
+!include ../C4_Component.puml
+
+title C4 — Components: Notification Service
+LAYOUT_LEFT_RIGHT()
+
+ContainerQueue(broker, "Message Broker", "RabbitMQ", "События системы")
+
+Container_Boundary(notificationBoundary, "Notification Service") {
+    Component(notificationConsumer, "Notification Event Consumer", "Получение событий системы")
+    Component(notificationRules, "Notification Rules", "Определение необходимости уведомления")
+    Component(notificationService, "Notification Application Service", "Формирование и отправка уведомлений")
+    Component(notificationChannel, "Notification Channel Adapter", "Интеграция с каналами уведомлений")
+}
+
+Rel(broker, notificationConsumer, "Передаёт системные события", "amqp")
+Rel(notificationConsumer, notificationRules, "Передаёт событие на проверку")
+Rel(notificationRules, notificationService, "Запускает уведомление при необходимости")
+Rel(notificationService, notificationChannel, "Передаёт подготовленное уведомление")
+
+SHOW_LEGEND()
+@enduml

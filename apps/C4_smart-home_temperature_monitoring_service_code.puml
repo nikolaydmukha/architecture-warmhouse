@@ -1,0 +1,109 @@
+@startuml SmartHomeMonitoringCode
+title Code Diagram — Temperature Monitoring Service
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "domain" {
+
+    class TemperatureMeasurement <<entity: фактическое измерение>> {
+        +ID: string
+        +SensorID: string
+        +Value: float64
+        +Unit: string
+        +MeasuredAt: time.Time
+        +Validate(): error
+    }
+
+    class TemperatureThreshold <<entity: границы порогов>> {
+        +SensorID: string
+        +MinValue: float64
+        +MaxValue: float64
+        +IsExceeded(value: float64): bool
+    }
+
+    class TemperatureThresholdExceeded <<Событие о выходе из допустимых значений>> {
+        +MeasurementID: string
+        +SensorID: string
+        +Value: float64
+        +Threshold: float64
+        +OccurredAt: time.Time
+    }
+
+    interface MeasurementRepository <<interface>> {
+        +Save(ctx, measurement): error
+        +GetCurrent(ctx, sensorID): (TemperatureMeasurement, error)
+        +GetHistory(ctx, sensorID): ([]TemperatureMeasurement, error)
+    }
+
+    interface ThresholdRepository <<interface>> {
+        +GetBySensorID(ctx, sensorID): (TemperatureThreshold, error)
+        +SetThresholdBySensorID(threshold, sensorID): (TemperatureThreshold, error)
+    }
+
+    interface EventPublisher <<interface>> {
+        +Publish(ctx, event): error
+    }
+}
+
+package "application" {
+
+    class MonitoringService <<Координирует сохранение измерений, получение истории и проверку порогов>> {
+        -measurements: MeasurementRepository
+        -thresholds: ThresholdRepository
+        -publisher: EventPublisher
+        +SaveMeasurement(ctx, measurement): error
+        +GetCurrentTemperature(ctx, sensorID): (TemperatureMeasurement, error)
+        +GetHistory(ctx, sensorID): ([]TemperatureMeasurement, error)
+        -evaluateThreshold(ctx, measurement): error
+    }
+}
+
+package "adapters" {
+
+    class TemperatureController <<Предоставляет http api>> {
+        -service: MonitoringService
+        +GetCurrentTemperature(request, response)
+        +GetTemperatureHistory(request, response)
+    }
+
+    class MeasurementConsumer <<Принимает события из брокера>> {
+        -service: MonitoringService
+        +HandleMeasurementReceived(ctx, event): error
+    }
+
+    class PostgresMeasurementRepository <<Хранений показаний температуры>> {
+        -db: DB
+        +Save(ctx, measurement): error
+        +GetCurrent(ctx, sensorID): (TemperatureMeasurement, error)
+        +GetHistory(ctx, sensorID): ([]TemperatureMeasurement, error)
+    }
+
+    class PostgresThresholdRepository <<Хранит настройки порогов>> {
+        -db: DB
+        +GetBySensorID(ctx, sensorID): (TemperatureThreshold, error)
+    }
+
+    class RabbitMQEventPublisher <<Публикует события>> {
+        -connection: Connection
+        +Publish(ctx, event): error
+    }
+}
+
+TemperatureController --> MonitoringService
+MeasurementConsumer --> MonitoringService
+
+MonitoringService --> MeasurementRepository
+MonitoringService --> ThresholdRepository
+MonitoringService --> EventPublisher
+
+PostgresMeasurementRepository ..|> MeasurementRepository
+PostgresThresholdRepository ..|> ThresholdRepository
+RabbitMQEventPublisher ..|> EventPublisher
+
+MonitoringService ..> TemperatureMeasurement : processes
+MonitoringService ..> TemperatureThreshold : evaluates
+MonitoringService ..> TemperatureThresholdExceeded : creates
+
+TemperatureMeasurement "1" --> "0..*" TemperatureThreshold : evaluated against
+
+@enduml
