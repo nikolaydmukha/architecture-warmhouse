@@ -1,0 +1,557 @@
+openapi: 3.0.3
+
+info:
+  title: Smart Home Microservices API
+  version: 1.0.0
+  description: >
+    REST API умного дома.
+    Предназначен для взаимодействия между микросервисами
+    управления датчиками, мониторинга температуры,
+    управления климатом и уведомлений.
+
+servers:
+  - url: https://api.smarthome.practicum.com
+    description: Пример адреса API Gateway
+
+tags:
+  - name: Sensors
+    description: Управление датчиками
+  - name: Measurements
+    description: Установка показателей
+  - name: Temperatures
+    description: Получение текущей температуры
+  - name: Thresholds
+    description: Пороговые значения температуры
+  - name: Climate Control
+    description: Управление климатом
+  - name: Notifications
+    description: Уведомления
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  /api/v1/sensors/{sensorId}:
+    get:
+      tags:
+        - Sensors
+      summary: Получить информацию о датчике
+      operationId: getSensorById
+      parameters:
+        - name: sensorId
+          in: path
+          required: true
+          description: Уникальный идентификатор датчика
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+      responses:
+        "200":
+          description: Информация о датчике получена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sensor"
+              examples:
+                temperatureSensor:
+                  value:
+                    sensorId: "550e8400-e29b-41d4-a716-446655440001"
+                    name: "Датчик температуры в спальне"
+                    type: "temperature"
+                    locationId: "660e8400-e29b-41d4-a716-446655440002"
+                    value: 22.5
+                    unit: "C"
+                    status: "active"
+                    lastUpdated: "2026-10-24T10:30:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/temperatures/{locationId}:
+    get:
+      tags:
+        - Temperatures
+      summary: Получить текущую температуру в помещении
+      operationId: getTemperatureByLocation
+      description: >
+        Возвращает актуальную температуру в указанном помещении.
+        Сервис мониторинга получает данные от интеграционного
+        сервиса устройств или из последнего сохранённого измерения.
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          description: Уникальный идентификатор помещения
+          schema:
+            type: string
+            format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440002"
+      responses:
+        "200":
+          description: Текущая температура получена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentTemperature"
+              examples:
+                currentTemperature:
+                  value:
+                    locationId: "660e8400-e29b-41d4-a716-446655440002"
+                    value: 22.5
+                    unit: "C"
+                    status: "active"
+                    measuredAt: "2026-10-24T10:30:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Помещение не найдено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: "TEMPERATURE_NOT_FOUND"
+                message: "Не найдено измерение в данной локации"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/measurements:
+    post:
+      tags:
+        - Measurements
+      summary: Передать новое измерение температуры
+      operationId: createMeasurement
+      description: >
+        Используется интеграционным сервисом для передачи
+        показаний в сервис мониторинга температуры.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeasurementRequest"
+            examples:
+              newMeasurement:
+                value:
+                  sensorId: "550e8400-e29b-41d4-a716-446655440001"
+                  value: 23.4
+                  unit: "C"
+                  measuredAt: "2026-10-24T10:35:00Z"
+      responses:
+        "201":
+          description: Измерение сохранено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Measurement"
+              examples:
+                savedMeasurement:
+                  value:
+                    measurementId: "770e8400-e29b-41d4-a716-446655440003"
+                    sensorId: "550e8400-e29b-41d4-a716-446655440001"
+                    value: 23.4
+                    unit: "C"
+                    measuredAt: "2026-10-24T10:35:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Датчик не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: "SENSOR_NOT_FOUND"
+                message: "Датчик не найден"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/thresholds/{locationId}:
+    put:
+      tags:
+        - Thresholds
+      summary: Создать или обновить пороги температуры
+      operationId: upsertThreshold
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          description: Идентификатор помещения
+          schema:
+            type: string
+            format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440002"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ThresholdRequest"
+            examples:
+              roomThreshold:
+                value:
+                  minValue: 18
+                  maxValue: 27
+      responses:
+        "200":
+          description: Пороговые значения сохранены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Threshold"
+              example:
+                locationId: "660e8400-e29b-41d4-a716-446655440002"
+                minValue: 18
+                maxValue: 27
+                updatedAt: "2026-10-24T10:40:00Z"
+        "400":
+          description: Некорректные данные или minValue больше maxValue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: "INVALID_THRESHOLD"
+                message: "Минимальное значение не может быть больше максимального"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/climate/commands:
+    post:
+      tags:
+        - Climate Control
+      summary: Отправить команду управления климатом
+      operationId: createClimateCommand
+      description: >
+        Создаёт команду для интеграционного сервиса.
+        Команда выполняется асинхронно, поэтому ответ
+        подтверждает её принятие, но не завершение выполнения.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClimateCommandRequest"
+            examples:
+              setTargetTemperature:
+                value:
+                  locationId: "660e8400-e29b-41d4-a716-446655440002"
+                  commandType: "set_target_temperature"
+                  targetValue: 21.5
+      responses:
+        "202":
+          description: Команда принята в обработку
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClimateCommand"
+              example:
+                commandId: "880e8400-e29b-41d4-a716-446655440004"
+                locationId: "660e8400-e29b-41d4-a716-446655440002"
+                commandType: "set_target_temperature"
+                targetValue: 21.5
+                status: "pending"
+                createdAt: "2026-10-24T10:45:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Устройство не найдено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: "DEVICE_NOT_FOUND"
+                message: "Устройство не найдено"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/notifications/{notificationId}:
+    get:
+      tags:
+        - Notifications
+      summary: Получить уведомление
+      operationId: getNotificationById
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "990e8400-e29b-41d4-a716-446655440005"
+      responses:
+        "200":
+          description: Уведомление найдено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+              example:
+                notificationId: "990e8400-e29b-41d4-a716-446655440005"
+                userId: "aa0e8400-e29b-41d4-a716-446655440006"
+                type: "temperature_threshold_exceeded"
+                message: "Температура в спальне 29 C"
+                status: "sent"
+                createdAt: "2026-10-24T10:46:00Z"
+                sentAt: "2026-10-24T10:46:02Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    Sensor:
+      type: object
+      required:
+        - sensorId
+        - name
+        - type
+        - locationId
+        - status
+      properties:
+        sensorId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [temperature, humidity, motion, smoke]
+        locationId:
+          type: string
+          format: uuid
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
+          example: "C"
+        status:
+          type: string
+          enum: [active, inactive, offline]
+        lastUpdated:
+          type: string
+          format: date-time
+
+    MeasurementRequest:
+      type: object
+      required: [sensorId, value, unit, measuredAt]
+      properties:
+        sensorId:
+          type: string
+          format: uuid
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
+          enum: ["C"]
+        measuredAt:
+          type: string
+          format: date-time
+
+    Measurement:
+      allOf:
+        - $ref: "#/components/schemas/MeasurementRequest"
+        - type: object
+          required: [measurementId]
+          properties:
+            measurementId:
+              type: string
+              format: uuid
+
+    CurrentTemperature:
+      type: object
+      required:
+        - locationId
+        - value
+        - unit
+        - measuredAt
+      properties:
+        locationId:
+          type: string
+          format: uuid
+          description: Идентификатор помещения
+        value:
+          type: number
+          format: double
+          description: Текущая температура
+          example: 22.5
+        unit:
+          type: string
+          enum: ["C"]
+          description: Единица измерения
+        status:
+          type: string
+          enum: [active, inactive, offline]
+          description: Состояние датчика
+        measuredAt:
+          type: string
+          format: date-time
+          description: Время последнего измерения
+
+    ThresholdRequest:
+      type: object
+      required: [minValue, maxValue]
+      properties:
+        minValue:
+          type: number
+          format: double
+        maxValue:
+          type: number
+          format: double
+
+    Threshold:
+      allOf:
+        - $ref: "#/components/schemas/ThresholdRequest"
+        - type: object
+          required: [locationId, updatedAt]
+          properties:
+            locationId:
+              type: string
+              format: uuid
+            updatedAt:
+              type: string
+              format: date-time
+
+    ClimateCommandRequest:
+      type: object
+      required: [locationId, commandType, targetValue]
+      properties:
+        locationId:
+          type: string
+          format: uuid
+        commandType:
+          type: string
+          enum: [set_target_temperature, set_sensor_status, set_sensor_mode]
+        targetValue:
+          type: number
+          format: double
+
+    ClimateCommand:
+      allOf:
+        - $ref: "#/components/schemas/ClimateCommandRequest"
+        - type: object
+          required: [commandId, status, createdAt]
+          properties:
+            commandId:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [pending, processing, completed, failed]
+            createdAt:
+              type: string
+              format: date-time
+
+    Notification:
+      type: object
+      required:
+        - notificationId
+        - userId
+        - type
+        - message
+        - status
+        - createdAt
+      properties:
+        notificationId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        message:
+          type: string
+        status:
+          type: string
+          enum: [pending, sent, failed]
+        createdAt:
+          type: string
+          format: date-time
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Некорректный запрос
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "BAD_REQUEST"
+            message: "Некорректный запрос"
+
+    Unauthorized:
+      description: Отсутствует или недействителен токен доступа
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "UNAUTHORIZED"
+            message: "Действие не авторизовано"
+
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "NOT_FOUND"
+            message: "Ресурс не найден"
+
+    InternalError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "INTERNAL_ERROR"
+            message: "Внутренняя ошибка сервера"

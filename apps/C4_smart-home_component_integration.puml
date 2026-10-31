@@ -1,0 +1,25 @@
+@startuml SmartHomeIntegration
+!include ../C4_Component.puml
+
+title C4 — Components: Sensor Integration
+LAYOUT_LEFT_RIGHT()
+
+ContainerQueue(broker, "Message Broker", "RabbitMQ", "Команды и события устройств")
+System_Ext(physicalSensors, "Физические устройства", "Датчики и другие устройства")
+
+Container_Boundary(integrationBoundary, "Sensor Integration Service") {
+    Component(sensorapi, "Sensor Integration API", "Приём команд и запросов интеграции")
+    Component(sensorAdapter, "Sensor Adapters", "Адаптация протоколов устройств")
+    Component(sensorStateManager, "Sensor State Manager", "Отслеживание состояния подключения")
+    Component(sensorEventPublisher, "Sensor Event Publisher", "Публикация измерений и событий")
+}
+
+Rel(broker, sensorapi, "Передаёт команды устройствам", "amqp")
+Rel(sensorapi, sensorAdapter, "Передаёт запросы устройствам")
+Rel(sensorapi, sensorStateManager, "Получает состояние устройств")
+Rel(sensorAdapter, physicalSensors, "Обменивается данными")
+Rel(sensorAdapter, sensorEventPublisher, "Передаёт полученные данные")
+Rel(sensorEventPublisher, broker, "Публикует измерения и состояние", "amqp")
+
+SHOW_LEGEND()
+@enduml

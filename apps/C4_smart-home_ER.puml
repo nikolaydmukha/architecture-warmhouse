@@ -1,0 +1,146 @@
+# ER-диаграмма системы умного дома (To-Be)
+
+```plantuml
+@startuml
+!theme plain
+hide circle
+skinparam linetype ortho
+skinparam entity {
+  BackgroundColor #F8F9FA
+  BorderColor #52677D
+}
+
+title ER-диаграмма системы "Умный дом"
+
+' User Access Management Service
+package "User Access Management DB" {
+  entity "users" as users {
+    * user_id : UUID <<PK>>
+    --
+    * name : VARCHAR
+    * email : VARCHAR <<UNIQUE>>
+    * password_hash : VARCHAR
+    * created_at : TIMESTAMP
+  }
+
+  entity "roles" as roles {
+    * role_id : UUID <<PK>>
+    --
+    * name : VARCHAR <<UNIQUE>>
+    description : TEXT
+  }
+
+  entity "user_roles" as user_roles {
+    * user_id : UUID <<PK, FK>>
+    * role_id : UUID <<PK, FK>>
+  }
+
+  users ||--o{ user_roles
+  roles ||--o{ user_roles
+}
+
+' Sensor Management Service
+package "Sensor Management DB" {
+  entity "locations" as locations {
+    * location_id : UUID <<PK>>
+    --
+    * name : VARCHAR
+    address : VARCHAR
+    description : TEXT
+  }
+
+  entity "sensors" as sensors {
+    * sensor_id : UUID <<PK>>
+    --
+    * name : VARCHAR
+    * type : VARCHAR
+    * status : VARCHAR
+    * location_id : UUID <<FK>>
+    unit : VARCHAR
+    created_at : TIMESTAMP
+  }
+
+  locations ||--o{ sensors
+}
+
+'  Temperature Monitoring Service
+package "Temperature Monitoring DB" {
+  entity "measurements" as measurements {
+    * measurement_id : UUID <<PK>>
+    --
+    * sensor_id : UUID
+    * value : DECIMAL
+    * measured_at : TIMESTAMP
+    source : VARCHAR
+  }
+
+  entity "thresholds" as thresholds {
+    * threshold_id : UUID <<PK>>
+    --
+    * location_id : UUID
+    min_value : DECIMAL
+    max_value : DECIMAL
+    * created_at : TIMESTAMP
+  }
+}
+
+' Climate Control Service
+package "Climate Control DB" {
+  entity "climate_settings" as climate_settings {
+    * setting_id : UUID <<PK>>
+    --
+    * location_id : UUID
+    * target_temperature : DECIMAL
+    mode : VARCHAR
+    updated_at : TIMESTAMP
+  }
+
+  entity "control_commands" as control_commands {
+    * command_id : UUID <<PK>>
+    --
+    * location_id : UUID
+    * command_type : VARCHAR
+    target_value : DECIMAL
+    * status : VARCHAR
+    created_at : TIMESTAMP
+    executed_at : TIMESTAMP
+  }
+}
+
+' Notification Service
+package "Notification DB" {
+  entity "notifications" as notifications {
+    * notification_id : UUID <<PK>>
+    --
+    * user_id : UUID
+    * type : VARCHAR
+    * message : TEXT
+    * status : VARCHAR
+    created_at : TIMESTAMP
+    sent_at : TIMESTAMP
+  }
+}
+
+' Sensor Integration Service
+package "Sensor Integration DB" {
+  entity "sensor_states" as sensor_states {
+    * sensor_state_id : UUID <<PK>>
+    --
+    * sensor_id : UUID
+    * connection_status : VARCHAR
+    last_seen_at : TIMESTAMP
+    updated_at : TIMESTAMP
+  }
+}
+
+' Межсервисные связи — ссылки по ID
+measurements ..> sensors : sensor_id
+thresholds ..> locations : location_id
+climate_settings ..> locations : location_id
+control_commands ..> locations : location_id
+notifications ..> users : user_id
+sensor_states ..> sensors : sensor_id
+
+@enduml
+```
+

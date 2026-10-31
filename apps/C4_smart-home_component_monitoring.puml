@@ -1,0 +1,29 @@
+@startuml SmartHomeMonitoring
+!include ../C4_Component.puml
+
+title C4 — Components: Temperature Monitoring
+LAYOUT_LEFT_RIGHT()
+
+Container(gateway, "API Gateway", "Единая точка входа")
+ContainerQueue(broker, "Message Broker", "RabbitMQ", "События измерений")
+ContainerDb(monitoringDB, "Monitoring DB", "PostgreSQL", "История измерений")
+
+Container_Boundary(monitoringBoundary, "Temperature Monitoring Service") {
+    Component(temperatureapi, "Temperature API", "Предоставление температурных данных")
+    Component(measurementConsumer, "Measurement Event Consumer", "Получение новых измерений")
+    Component(monitoringService, "Monitoring Application Service", "Обработка и сохранение измерений")
+    Component(thresholdEvaluator, "Threshold Evaluator", "Проверка температурных порогов")
+    Component(measurementRepository, "Measurement Repository", "Хранение истории измерений")
+}
+
+Rel(gateway, temperatureapi, "Запросы температуры", "http/rest")
+Rel(temperatureapi, monitoringService, "Запрашивает данные")
+Rel(broker, measurementConsumer, "Передаёт события измерений", "amqp")
+Rel(measurementConsumer, monitoringService, "Передаёт измерения")
+Rel(monitoringService, measurementRepository, "Сохраняет и читает измерения")
+Rel(monitoringService, thresholdEvaluator, "Проверяет температурные пороги")
+Rel(measurementRepository, monitoringDB, "Читает и записывает", "SQL")
+Rel(thresholdEvaluator, broker, "Публикует событие превышения порога", "amqp")
+
+SHOW_LEGEND()
+@enduml
